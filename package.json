@@ -1,0 +1,29 @@
+{
+  "name": "colour-club-demo",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --env-file-if-exists=.env --test test/*.test.mjs",
+    "db:check-backup": "node --env-file-if-exists=.env scripts/check-backup.mjs",
+    "test:postgres": "node --env-file-if-exists=.env --test test/postgres.test.mjs",
+    "test:e2e": "playwright test",
+    "db:local": "node scripts/local-db.mjs",
+    "db:import": "node --env-file-if-exists=.env scripts/import-sqlite.mjs",
+    "admin": "node --env-file-if-exists=.env scripts/admin.mjs",
+    "db:backup": "node --env-file-if-exists=.env scripts/backup.mjs",
+    "check": "node --check server.mjs && node --check public/app.js"
+  },
+  "dependencies": {
+    "nodemailer": "^10.5.0",
+    "otpauth": "^9.6.0",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0"
+  }
+}

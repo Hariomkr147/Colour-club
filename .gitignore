@@ -1,0 +1,9 @@
+data/
+node_modules/
+*.log
+.env
+.env.*
+!.env.example
+playwright-report/
+test-results/
+screenshots/

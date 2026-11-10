@@ -1,0 +1,11 @@
+import { spawnSync } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required.');
+const url=new URL(process.env.DATABASE_URL);
+const directory=resolve('data','backups');mkdirSync(directory,{recursive:true});
+const filename=join(directory,`colour-${new Date().toISOString().replace(/[:.]/g,'-')}.dump`);
+const program=process.env.PG_BIN ? join(process.env.PG_BIN,'pg_dump') : process.platform==='win32'?'C:/Program Files/PostgreSQL/18/bin/pg_dump.exe':'pg_dump';
+const result=spawnSync(program,['--format=custom','--no-owner','--file',filename],{env:{...process.env,PGHOST:url.hostname,PGPORT:url.port||'5432',PGUSER:decodeURIComponent(url.username),PGPASSWORD:decodeURIComponent(url.password),PGDATABASE:url.pathname.slice(1)},encoding:'utf8',windowsHide:true,timeout:120000});
+if(result.error || result.status)throw new Error(result.error?.message || result.stderr);
+console.log(`Backup created: ${filename}`);
