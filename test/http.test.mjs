@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createApp } from '../server.mjs';
 
+test('an explicit tick processes the current boundary after waiting for older work',async t=>{
+  let now=1800000000000;const app=await createApp({clock:()=>now});t.after(()=>app.close());
+  const round=app.store.state(30,null,now).round;const original=app.store.tick;
+  let release,delayed=true;const gate=new Promise(resolve=>{release=resolve});
+  app.store.tick=async timestamp=>{if(delayed){delayed=false;await gate;}return original(timestamp)};
+  const earlier=app.tick();await new Promise(setImmediate);now=round.end;
+  const current=app.tick();release();await Promise.all([earlier,current]);
+  assert.equal(typeof app.store.get('SELECT result FROM rounds WHERE id=?',round.id).result,'number');
+});
+
 test('authentication throttles an account without locking other accounts behind the same proxy',async t=>{
   const app=await createApp();app.server.listen(0,'127.0.0.1');await once(app.server,'listening');t.after(()=>app.close());
   const origin=`http://127.0.0.1:${app.server.address().port}`;

@@ -284,7 +284,8 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
   }
   server.on('close', () => { void closeStore(); });
   async function close() { clearInterval(timer); await new Promise(resolve => server.close(resolve)); await closeStore(); }
-  return { server, store, tick, close };
+  // An explicit refresh must process the current clock after any older background work.
+  return { server, store, tick: async () => { await ticking; await tick(); }, close };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
