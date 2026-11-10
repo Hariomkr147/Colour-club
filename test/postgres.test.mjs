@@ -15,6 +15,23 @@ async function database(t) {
   t.after(async()=>{assert.match(schema,/^test_colour_[a-f0-9]+$/);await pool.query(`DROP SCHEMA ${schema} CASCADE`);await pool.end()});
   return schema;
 }
+
+test('PostgreSQL signup without email verification permits play and leaves recovery unavailable',{skip:!url},async t=>{
+  let app;t.after(async()=>{if(app){await new Promise(resolve=>app.server.close(resolve));await app.store.close();}});
+  const schema=await database(t);const now=1800000000000;
+  app=await createApp({databaseUrl:url,dbSchema:schema,clock:()=>now,requireVerification:false});
+  app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
+  const origin=`http://127.0.0.1:${app.server.address().port}`;let cookie;
+  const post=(path,input)=>fetch(origin+path,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})},body:JSON.stringify(input)});
+  const response=await post('/api/register',{email:'no-email@example.test',name:'No email',password:'unique registration password',accepted:true});
+  assert.equal(response.status,200);cookie=response.headers.get('set-cookie').split(';')[0];
+  const state=await(await fetch(origin+'/api/state',{headers:{Cookie:cookie}})).json();
+  assert.equal(state.user.verified,false);assert.equal(state.registrationEnabled,true);assert.equal(state.verificationRequired,false);assert.equal(state.emailAvailable,false);
+  assert.equal((await app.store.get('SELECT COUNT(*)::integer AS count FROM auth_tokens')).count,0);
+  assert.equal((await post('/api/bets',{round:state.round.id,selection:'GREEN',base:10,multiplier:1,key:'no-email-first-bet-001'})).status,200);
+  assert.equal((await post('/api/forgot-password',{email:'no-email@example.test'})).status,503);
+  assert.equal((await post('/api/resend-verification',{})).status,503);
+});
 test('PostgreSQL serialises wallet debits, retries, opposing bets and competing settlement workers',{skip:!url},async t=>{
   const schema=await database(t);let now=1800000000000;
   const store=await createPgStore(url,{schema,clock:()=>now});t.after(()=>store.close());

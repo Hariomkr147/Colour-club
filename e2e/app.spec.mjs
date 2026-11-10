@@ -10,6 +10,7 @@ test('player registration, selections, persisted prediction, wallet and rules',a
   await page.locator('#join-button').click();await page.locator('#name').fill('Playwright test');
   await page.locator('#email').fill(`e2e-${Date.now()}@example.test`);await page.locator('#password').fill('Long e2e unique password');await page.locator('#accepted').check();await page.locator('#auth-submit').click();
   await expect(page.locator('#auth-dialog')).not.toBeVisible();await expect(page.locator('#balance')).toContainText('10,000');
+  await expect(page.locator('#verification-notice')).toBeHidden();
   for(const room of [30,60,180,300]){await page.locator(`[data-room="${room}"]`).click();await expect(page.locator('#round-id')).toContainText(`Round ${room}-`)}
   for(const selection of ['GREEN','RED','VIOLET','0','1','2','3','4','5','6','7','8','9','SMALL','BIG']){await page.locator(`[data-choice="${selection}"]`).click();await expect(page.locator(`[data-choice="${selection}"]`)).toHaveAttribute('aria-pressed','true')}
   for(const base of [10,50,100,1000]){await page.locator(`[data-base="${base}"]`).click();await expect(page.locator('#base')).toHaveValue(String(base))}

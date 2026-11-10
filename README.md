@@ -63,7 +63,9 @@ No deposits, purchases, prizes, transfers or withdrawals exist. There is no hidd
 
 Local development saves verification/recovery messages to private `data/mail/*.json` files. No external mail is sent in that mode. Open the saved link locally to exercise the flow. This is not production email delivery.
 
-Production requires `SMTP_URL` and `MAIL_FROM` and sends through that configured SMTP provider. Provider credentials, sender-domain verification, deliverability and recovery emails to actual inboxes must be tested on staging before launch.
+The current points pilot enables registration with `REGISTRATION_ENABLED=true` and `REQUIRE_VERIFICATION=false`. New accounts can sign in and play immediately; their addresses remain unverified. No verification email is sent. With no SMTP provider, password recovery reports that it is unavailable. Players must retain their passwords.
+
+To enable email verification later, configure `SMTP_URL` and `MAIL_FROM`, test delivery and recovery to real inboxes, then set `REQUIRE_VERIFICATION=true`. Production defaults to requiring verification if that variable is omitted. Set `REGISTRATION_ENABLED=false` to pause new accounts independently.
 
 ## Production configuration
 
@@ -73,13 +75,14 @@ Copy the fields from `.env.example` into your hosting provider's secret/environm
 |---|---|
 | `DATABASE_URL` | Production PostgreSQL connection, using the provider's verified TLS/private-network instructions |
 | `APP_ORIGIN` | Exact HTTPS site origin without a trailing slash |
-| `NODE_ENV` | `production`; startup refuses missing PostgreSQL, HTTPS origin or mail settings |
+| `NODE_ENV` | `production`; requires PostgreSQL and an HTTPS origin; verified registration also requires email settings |
 | `HOST` | `0.0.0.0` for a host-managed service |
-| `PORT` | Hosting-provided listening port; local default 3000 |
+| `PORT`, `SERVER_PORT` | Listening port, in that priority order; Botkeep supplies `SERVER_PORT`; local default 3000 |
 | `SMTP_URL`, `MAIL_FROM` | SMTP transport and verified sender |
-| `REQUIRE_VERIFICATION` | Enabled automatically in production |
+| `REQUIRE_VERIFICATION` | Explicitly `false` for the current pilot; production default is `true` |
+| `REGISTRATION_ENABLED` | `true` to accept new accounts; `false` to pause |
 
-`render.yaml` prepares an always-on Node web service with an externally configured PostgreSQL database. It deliberately contains no credentials and creates no paid service by itself. The same source can run in the supplied Docker container behind HTTPS. No deployment was performed or hosting subscription purchased.
+`render.yaml` prepares an always-on Node web service with an externally configured PostgreSQL database. It deliberately contains no credentials and creates no paid service by itself. The same source can run in the supplied Docker container behind HTTPS. Botkeep provisioning was attempted using the owner's API key; see [BOTKEEP.md](BOTKEEP.md) for the current result. No hosting subscription was purchased.
 
 Provision an administrator using a trusted administration shell:
 

@@ -4,9 +4,18 @@ Source: [Hariomkr147/Colour-club](https://github.com/Hariomkr147/Colour-club), b
 
 ## Which host?
 
-The owner reports **2,048 MB RAM, approximately 20 GB disk, five workload slots and 1.5 shared vCPU**. This is technically a closer fit for the app than an unverified preview runtime, but it is not yet a confirmed permitted hosting choice. Account-specific allowances have not been read from the dashboard and are shared across slots.
+The authenticated plan API reports **2,048 MB RAM, 2,048 MB disk, five workload slots and 150% CPU** on Founder Free. These are shared account limits. The API reports 2 GB disk rather than the owner's earlier estimate of 20 GB.
 
-**Check before deployment:** Botkeep's terms dated 8 November 2026 prohibit game servers. Whether the provider permits this browser-based game needs written confirmation. The standard Founder terms also list 2 GB disk; the reported 20 GB may be a custom allocation. Confirm the actual assignment. [Current terms, sections 5 and 8](https://botkeep.cloud/terms).
+The owner confirmed on 10 November 2026 that Botkeep support permits this points-only browser game. [Terms](https://botkeep.cloud/terms).
+
+## Deployment attempt, 10 November 2026
+
+The owner's API key authenticated successfully against the provider's documented [developer API](https://api.botkeep.cloud/api/v1/developer/openapi.json). Two workloads were created within the free quota:
+
+- `Colour Club Database`: PostgreSQL 18, 1,024 MB RAM, 50% CPU, 1,280 MB disk. Provisioning failed. A supported installation retry returned the same error: **"Recovery is paused to preserve existing configuration. Contact staff to finish installation without overwriting files."** Staff intervention is required; the database is not available.
+- `Colour Club App`: Node 24, GitHub import from `main`, 768 MB RAM, 75% CPU, 512 MB disk. Source import and dependency installation completed. Its startup command is deliberately a waiting process until PostgreSQL, the public HTTPS origin and environment settings are ready. No public domain is enabled.
+
+The app is **not live**. Do not treat successful source import or resource creation as a completed deployment. Private API state is retained locally under ignored `data/deployment/`; credentials are not in this repository. Resolve PostgreSQL provisioning with Botkeep staff, configure the database URL and HTTPS origin, sync the latest commit, then change the app start command to `npm start` and verify the public service.
 
 Botkeep documents continuous Node workloads, PostgreSQL profiles, GitHub imports and shared account resources. Its FAQ says continuous operation is not an uptime SLA. It currently lists European locations; confirm actual placement and data obligations before onboarding Indian customers. [Hosting overview](https://botkeep.cloud/), [deployment documentation](https://botkeep.cloud/docs).
 
@@ -52,18 +61,18 @@ The app serves the frontend and API together. It does not require a separate sta
 |---|---|
 | `NODE_ENV` | `production` |
 | `HOST` | `0.0.0.0` |
-| `PORT` | The port allocated to this Node workload by Botkeep |
+| `SERVER_PORT` | Supplied by Botkeep; the app reads it when `PORT` is absent |
 | `APP_ORIGIN` | The exact externally visible HTTPS origin, e.g. `https://your-domain.example`, with no trailing slash |
 | `DATABASE_URL` | The connection URL for the PostgreSQL workload |
-| `SMTP_URL` | Your email provider's SMTP URL, with properly URL-encoded credentials |
-| `MAIL_FROM` | Your verified sender, e.g. `Colour Club <accounts@your-domain.example>` |
-| `REQUIRE_VERIFICATION` | `true` |
+| `REGISTRATION_ENABLED` | `true` |
+| `REQUIRE_VERIFICATION` | `false` for the current points pilot |
+| `SMTP_URL`, `MAIL_FROM` | Leave absent until an email provider is configured |
 
 Store real values in the provider's secrets/settings, not in the repository. The sample `.env.example` contains placeholders only. Operational commands also accept panel-provided environment variables when there is no `.env` file.
 
 Configure the provider's HTTPS/web routing for the allocated app port. Confirm that requests reach the Node service with the configured public Host header. Botkeep's documentation says not to assume arbitrary public ports; a running process alone does not prove that a website is exposed.
 
-The app intentionally refuses production startup if its database, HTTPS origin or email settings are missing.
+The app refuses production startup if its database or HTTPS origin is missing. Email is optional only when verification is explicitly disabled or registration is paused. Without email, password recovery is unavailable; users can still register, log in and play when verification is disabled.
 
 ## 4. First start and administrator setup
 
@@ -84,9 +93,9 @@ Sign in at `/admin`, then enter an authenticator code. There are no default publ
 ## 5. Verify before inviting players
 
 - Public `/` and `/api/health` respond through HTTPS.
-- Register a test player, receive an email and verify the address before betting.
+- Register a test player and confirm immediate sign-in and play without email verification under the pilot configuration.
 - Submit one prediction and verify a single debit, a later result and consistent point activity.
-- Password reset works in a real inbox; the old session stops working.
+- Without SMTP, confirm password recovery reports that it is unavailable. After connecting email, test reset delivery and confirm the old session stops working.
 - Admin login requires an authenticator code. Blocking a test user revokes their sessions, prevents new play and records the reason; accepted bets still settle.
 - Restart the Node workload and confirm balances/history persist and unfinished rounds recover.
 - Export a PostgreSQL backup, keep an independent copy and test restoring it away from the live database. The Node Docker image does not contain PostgreSQL backup tools; use the provider's documented backup process or a trusted client machine.
@@ -98,4 +107,4 @@ Keep the launch checks in [LAUNCH.md](LAUNCH.md). This deployment remains points
 
 GitHub access was available through the connected account for the source upload; no pasted GitHub token was necessary. This repository is public, so importing its source may not require a GitHub token at all, depending on Botkeep's import workflow.
 
-For hosting automation, use a provider-supported API/connection with a short-lived key limited to the intended project. A GitHub token does not grant access to Botkeep or ModelScope. The current research has not verified a Botkeep deployment API contract or account permissions, so no endpoint or token scope is invented here. Prefer the documented GitHub import/panel flow until the hosting API is confirmed. Do not paste unrestricted tokens into chat or commit them to source.
+For hosting automation, use a provider-supported API/connection with a key limited to the intended project. A GitHub token does not grant access to Botkeep or ModelScope. The Botkeep developer API and workload creation permission were verified during this deployment attempt. Do not paste unrestricted tokens into chat or commit them to source.

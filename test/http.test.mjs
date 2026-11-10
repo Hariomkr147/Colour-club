@@ -3,6 +3,19 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createApp } from '../server.mjs';
 
+test('paused registration and unavailable email fail closed without creating accounts',async t=>{
+  const app=await createApp({registrationEnabled:false});
+  app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
+  t.after(()=>new Promise(resolve=>app.server.close(resolve)));
+  const origin=`http://127.0.0.1:${app.server.address().port}`;
+  const post=(path,body)=>fetch(origin+path,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  assert.equal((await post('/api/register',{email:'paused@example.test',password:'long test password',name:'Paused',accepted:true})).status,503);
+  assert.equal((await post('/api/forgot-password',{email:'paused@example.test'})).status,503);
+  assert.equal(app.store.get('SELECT COUNT(*) AS count FROM users').count,0);
+  const state=await(await fetch(origin+'/api/state')).json();
+  assert.equal(state.registrationEnabled,false);assert.equal(state.emailAvailable,false);
+});
+
 test('HTTP registration, cookies, privacy, request protection and session rotation', async t => {
   let now = 1800000000000;
   const app = await createApp({ clock: () => now });
@@ -22,6 +35,9 @@ test('HTTP registration, cookies, privacy, request protection and session rotati
   cookie = setCookie.split(';')[0];
   const state = await (await fetch(origin + '/api/state?room=30', { headers: { Cookie: cookie } })).json();
   assert.equal(state.user.balance, 1000000);
+  assert.equal(state.verificationRequired, false);
+  assert.equal(state.registrationEnabled, true);
+  assert.equal(state.emailAvailable, false);
   assert.equal(state.user.password, undefined);
   const bet = { round: state.round.id, selection: 'GREEN', base: 1000, multiplier: 10, key: 'integration-key-0001' };
   const replies = await Promise.all([post('/api/bets', bet), post('/api/bets', bet)]);

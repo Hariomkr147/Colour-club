@@ -27,9 +27,9 @@ The template uses an externally configured database instead of automatically pla
 
 1. Hosting account/project and domain, with the deployment region chosen after data-location review.
 2. Managed PostgreSQL URL with verified TLS/private networking, restricted credentials, backups and a restore runbook.
-3. SMTP provider credentials, verified sender and staged verification/reset delivery tests.
+3. SMTP provider credentials, verified sender and delivery tests before enabling verification or password recovery. The owner chose immediate registration without verification for the points pilot.
 4. Real owner email, authenticator enrolment and secure handling of local bootstrap material.
 5. Operator support/privacy/grievance contacts, retention/deletion procedures and the public terms reviewed for the exact model.
 6. Measured staging load target, rate-limit sizing for shared mobile networks/proxies, monitoring and incident ownership.
 
-The repository contains no public host credentials and no authorization to buy a hosting plan. Deployment has not been claimed or performed.
+The repository contains no public host credentials. Botkeep deployment was attempted within the existing free allocation; PostgreSQL provisioning requires provider staff intervention. The app is not live. See [BOTKEEP.md](BOTKEEP.md).

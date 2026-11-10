@@ -60,8 +60,9 @@ function updateTimer() {
   $('.timer-box').classList.toggle('locked', locked);
   $('#timer-caption').textContent = locked ? 'NEXT ROUND IN' : 'TIME LEFT';
   const button = $('#place-button');
-  button.disabled = sending || stale || (locked && !!state?.user && !pending);
-  button.textContent = sending ? 'Saving prediction…' : stale ? 'Waiting for connection…' : !state?.user ? 'Create account to play' : pending ? 'Retry pending prediction' : locked ? 'Next round opening soon' : 'Place prediction';
+  const registrationsPaused = !state?.user && state?.registrationEnabled === false;
+  button.disabled = sending || stale || registrationsPaused || (locked && !!state?.user && !pending);
+  button.textContent = sending ? 'Saving prediction…' : stale ? 'Waiting for connection…' : registrationsPaused ? 'Registrations temporarily paused' : !state?.user ? 'Create account to play' : pending ? 'Retry pending prediction' : locked ? 'Next round opening soon' : 'Place prediction';
   $$('[data-choice], [data-base], [data-multiplier], #base').forEach(control => { control.disabled = sending || !!pending; });
   if (stale && state) { $('#connection').textContent = 'Connection interrupted. Predictions pause until the server reconnects.'; $('#connection').classList.add('error'); }
 }
@@ -92,8 +93,10 @@ function render() {
   $('#balance').innerHTML = `${money(user ? user.balance : state.rules.welcomePoints * 100)}<span> pts</span>`;
   $('#balance-note').textContent = user ? `Welcome, ${user.name}. All points are virtual.` : 'Free to play. No deposits. No cash value.';
   $('#join-button').hidden = !!user;
+  $('#join-button').disabled = state.registrationEnabled === false;
+  $('#join-button').textContent = state.registrationEnabled === false ? 'Registration paused' : 'Create account';
   $('#admin-link').hidden = user?.role !== 'admin';
-  $('#verification-notice').hidden = !user || !!user.verified;
+  $('#verification-notice').hidden = !user || !!user.verified || state.emailAvailable === false || state.verificationRequired === false;
   $('#account-button').textContent = user ? 'Sign out' : 'Sign in';
   $('#round-id').textContent = `Round ${state.round.id}`;
   $('#pool-amount').innerHTML = `${money(state.pool.stake)} <small>pts</small>`;
@@ -130,6 +133,7 @@ async function refresh() {
 function openAuth(mode) {
   authMode = mode;
   const signup = mode === 'register';
+  if (signup && state?.registrationEnabled === false) { message('#bet-message','New registrations are temporarily unavailable.'); return; }
   $('#auth-title').textContent = signup ? 'Join Colour Club.' : 'Welcome back.';
   $('#auth-description').textContent = signup ? 'Create your account and receive 10,000 welcome points.' : 'Sign in to access your wallet and predictions.';
   $('#name-field').hidden = !signup; $('#name').required = signup;
@@ -205,6 +209,7 @@ updateSlip(); void refresh();
 
 let recoveryToken = null;
 $('#forgot-password').onclick = () => {
+  if (state?.emailAvailable === false) { message('#auth-message','Password recovery is currently unavailable. Keep your password safe.'); return; }
   recoveryToken = null;
   $('#auth-dialog').close();
   $('#recovery-form').hidden=false;

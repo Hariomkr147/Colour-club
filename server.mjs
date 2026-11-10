@@ -23,7 +23,7 @@ const assets = new Map([
   ['/admin.js', ['admin.js', 'text/javascript; charset=utf-8']],
 ]);
 
-export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, clock = Date.now, origin, secure = false, mailer, requireVerification = false } = {}) {
+export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, clock = Date.now, origin, secure = false, mailer, requireVerification = false, registrationEnabled = true } = {}) {
   const store = databaseUrl ? await createPgStore(databaseUrl, { schema: dbSchema, clock }) : createStore(dbPath);
   const limits = new Map();
   let hashing = 0;
@@ -127,7 +127,7 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
       if (url.pathname === '/api/health' && req.method === 'GET') return json(healthy ? 200 : 503, { ok: healthy });
       if (!healthy) throw fail('Rounds are temporarily paused while the server recovers. Your points are saved.', 503);
       if (req.method === 'GET' && url.pathname === '/api/state') {
-        return json(200, await store.state(Number(url.searchParams.get('room') || 30), await userFrom(req), clock()));
+        return json(200, { ...await store.state(Number(url.searchParams.get('room') || 30), await userFrom(req), clock()), registrationEnabled, verificationRequired: requireVerification, emailAvailable: !!mailer });
       }
       if (req.method === 'GET' && url.pathname.startsWith('/api/admin/')) {
         await requireAdmin(req);
@@ -166,6 +166,7 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
       if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) throw fail('JSON content is required.', 415);
       const input = await body(req);
       if (['/api/register', '/api/login'].includes(url.pathname)) {
+        if (url.pathname === '/api/register' && !registrationEnabled) throw fail('New registrations are temporarily unavailable. Please try again later.',503);
         await rate(`auth:${ip}`, 10);
         if (typeof input.email !== 'string' || input.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) throw fail('Enter a valid email address.');
         if (typeof input.password !== 'string' || input.password.length < 12 || input.password.length > 128) throw fail('Use a password between 12 and 128 characters.');
@@ -178,7 +179,7 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
           const hash = await hashPassword(input.password, salt);
           expectedPassword=hash.toString('hex');
           userId = await store.register(email, input.name.trim(), hash.toString('hex'), salt, clock());
-          try { await sendToken({id:userId,email}, 'verify'); } catch { console.error('Verification delivery failed; player can request another email.'); }
+          if (mailer && requireVerification) { try { await sendToken({id:userId,email}, 'verify'); } catch { console.error('Verification delivery failed; player can request another email.'); } }
         } else {
           const user = await store.get('SELECT * FROM users WHERE email=?', email);
           const hash = await hashPassword(input.password, user?.salt || '00000000000000000000000000000000');
@@ -194,6 +195,7 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
         return json(200, { ok: true });
       }
       if (url.pathname === '/api/forgot-password') {
+        if (!mailer) throw fail('Email recovery is temporarily unavailable. Please try again later.',503);
         await rate(`recovery:${ip}`, 5);
         if (typeof input.email !== 'string' || input.email.length>254) throw fail('Enter an email address.');
         const user = await store.get('SELECT id,email FROM users WHERE email=?', input.email.trim().toLowerCase());
@@ -230,6 +232,7 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
         return json(200, { ok: true });
       }
       if (url.pathname === '/api/resend-verification') {
+        if (!mailer) throw fail('Verification email is temporarily unavailable. Please try again later.',503);
         await rate(`verify:${userId}`, 2);
         const user = await store.get('SELECT id,email,verified FROM users WHERE id=?',userId);
         if (!user.verified) await sendToken(user,'verify');
@@ -282,14 +285,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const secure = origin?.startsWith('https://') || false;
   if (process.env.NODE_ENV === 'production' && !secure) throw new Error('Production requires an HTTPS APP_ORIGIN and a TLS reverse proxy.');
   const production = process.env.NODE_ENV === 'production';
-  if (production && (!process.env.DATABASE_URL || !process.env.SMTP_URL || !process.env.MAIL_FROM)) throw new Error('Production requires DATABASE_URL, SMTP_URL and MAIL_FROM.');
+  const registrationEnabled = process.env.REGISTRATION_ENABLED !== 'false';
+  const requireVerification = process.env.REQUIRE_VERIFICATION === undefined ? production : process.env.REQUIRE_VERIFICATION === 'true';
+  if (production && !process.env.DATABASE_URL) throw new Error('Production requires DATABASE_URL.');
+  if (production && registrationEnabled && requireVerification && (!process.env.SMTP_URL || !process.env.MAIL_FROM)) throw new Error('Verified registration requires SMTP_URL and MAIL_FROM. Configure email, pause registration, or explicitly set REQUIRE_VERIFICATION=false.');
   const transport = process.env.SMTP_URL ? nodemailer.createTransport(process.env.SMTP_URL) : null;
-  const mailer = transport ? mail => transport.sendMail({ ...mail, from: process.env.MAIL_FROM }) : async mail => {
+  const mailer = transport ? mail => transport.sendMail({ ...mail, from: process.env.MAIL_FROM }) : production ? undefined : async mail => {
     mkdirSync(join(root,'data','mail'),{recursive:true});
     writeFileSync(join(root,'data','mail',`${Date.now()}-${randomBytes(4).toString('hex')}.json`),JSON.stringify(mail,null,2),{mode:0o600});
   };
-  const app = await createApp({ dbPath: path, databaseUrl: process.env.DATABASE_URL, origin, secure, mailer, requireVerification: production || process.env.REQUIRE_VERIFICATION==='true' });
-  const port = Number(process.env.PORT || 3000);
+  const app = await createApp({ dbPath: path, databaseUrl: process.env.DATABASE_URL, origin, secure, mailer, requireVerification, registrationEnabled });
+  const port = Number(process.env.PORT || process.env.SERVER_PORT || 3000);
   app.server.listen(port, process.env.HOST || '127.0.0.1', () => console.log(`Colour Club is running at ${origin || `http://127.0.0.1:${port}`}`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => app.server.close(() => process.exit(0)));
 }

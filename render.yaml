@@ -14,12 +14,10 @@ services:
       - key: HOST
         value: 0.0.0.0
       - key: REQUIRE_VERIFICATION
+        value: "false"
+      - key: REGISTRATION_ENABLED
         value: "true"
       - key: DATABASE_URL
         sync: false
       - key: APP_ORIGIN
-        sync: false
-      - key: SMTP_URL
-        sync: false
-      - key: MAIL_FROM
         sync: false
