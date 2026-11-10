@@ -30,9 +30,10 @@ export async function createPgStore(connectionString, { schema = process.env.DAT
   await transaction(async t => {
     await t.run('SELECT pg_advisory_xact_lock(7421901)');
     await t.run('CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,applied_at TIMESTAMPTZ NOT NULL DEFAULT now())');
-    if (!await t.get('SELECT version FROM schema_migrations WHERE version=1')) {
-      await t.run(readFileSync(new URL('./migrations/001.sql', import.meta.url), 'utf8'));
-      await t.run('INSERT INTO schema_migrations(version) VALUES(1)');
+    for (const version of [1,2]) {
+      if (await t.get('SELECT version FROM schema_migrations WHERE version=?',version)) continue;
+      await t.run(readFileSync(new URL(`./migrations/${String(version).padStart(3,'0')}.sql`, import.meta.url), 'utf8'));
+      await t.run('INSERT INTO schema_migrations(version) VALUES(?)',version);
     }
   });
   async function register(email, name, password, salt, now = clock()) {

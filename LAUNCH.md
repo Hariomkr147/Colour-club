@@ -23,13 +23,13 @@ Primary sources: [Render service types](https://render.com/docs/service-types), 
 
 The template uses an externally configured database instead of automatically placing Indian user data in an assumed region. The research does not certify any vendor's contractual suitability, geographic compliance, current pricing, uptime or security.
 
-## Concrete remaining deployment inputs
+## Deployment and remaining operations
 
-1. Hosting account/project and domain, with the deployment region chosen after data-location review.
-2. Managed PostgreSQL URL with verified TLS/private networking, restricted credentials, backups and a restore runbook.
+1. Botkeep app hosting and HTTPS address are configured; confirm provider location and contractual/data-location requirements for the intended audience.
+2. Supabase PostgreSQL in Mumbai, a restricted runtime role, certificate verification and a tested backup/restore process are configured. Establish independent scheduled backups and retention.
 3. SMTP provider credentials, verified sender and delivery tests before enabling verification or password recovery. The owner chose immediate registration without verification for the points pilot.
-4. Real owner email, authenticator enrolment and secure handling of local bootstrap material.
+4. The owner account and private authenticator bootstrap file are provisioned. The owner must enrol its authenticator and securely store the credentials.
 5. Operator support/privacy/grievance contacts, retention/deletion procedures and the public terms reviewed for the exact model.
 6. Measured staging load target, rate-limit sizing for shared mobile networks/proxies, monitoring and incident ownership.
 
-The repository contains no public host credentials. Botkeep deployment was attempted within the existing free allocation; PostgreSQL provisioning requires provider staff intervention. The app is not live. See [BOTKEEP.md](BOTKEEP.md).
+The website is hosted at https://colour-club.bot-keep.xyz/ using the existing free Botkeep allocation and a separate free Supabase project. The failed Botkeep database was replaced and removed. The repository contains no public host credentials. See [BOTKEEP.md](BOTKEEP.md) and [SUPABASE.md](SUPABASE.md). Technical deployment and functional checks do not certify legal classification, uptime or a particular traffic capacity.

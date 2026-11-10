@@ -2,6 +2,8 @@
 
 A colour-prediction website with PostgreSQL, accounts, points wallets, four continuous rooms and an administrator dashboard.
 
+Hosted player site: https://colour-club.bot-keep.xyz/ · Administrator: https://colour-club.bot-keep.xyz/admin
+
 For the complete GitHub-to-host workflow, use the [Botkeep deployment guide](BOTKEEP.md). It covers Node 24, PostgreSQL, assigned ports, HTTPS, email and private admin bootstrap. Live credentials and local databases are excluded from this repository.
 
 ## Local access
@@ -74,6 +76,7 @@ Copy the fields from `.env.example` into your hosting provider's secret/environm
 | Variable | Meaning |
 |---|---|
 | `DATABASE_URL` | Production PostgreSQL connection, using the provider's verified TLS/private-network instructions |
+| `DATABASE_SCHEMA` | Defaults to `public`; hosted Supabase uses the private `colour_club` schema |
 | `APP_ORIGIN` | Exact HTTPS site origin without a trailing slash |
 | `NODE_ENV` | `production`; requires PostgreSQL and an HTTPS origin; verified registration also requires email settings |
 | `HOST` | `0.0.0.0` for a host-managed service |
@@ -82,7 +85,7 @@ Copy the fields from `.env.example` into your hosting provider's secret/environm
 | `REQUIRE_VERIFICATION` | Explicitly `false` for the current pilot; production default is `true` |
 | `REGISTRATION_ENABLED` | `true` to accept new accounts; `false` to pause |
 
-`render.yaml` prepares an always-on Node web service with an externally configured PostgreSQL database. It deliberately contains no credentials and creates no paid service by itself. The same source can run in the supplied Docker container behind HTTPS. Botkeep provisioning was attempted using the owner's API key; see [BOTKEEP.md](BOTKEEP.md) for the current result. No hosting subscription was purchased.
+The hosted deployment uses Botkeep for Node and Supabase PostgreSQL in Mumbai; see [BOTKEEP.md](BOTKEEP.md) and [SUPABASE.md](SUPABASE.md). The failed Botkeep database was replaced. No paid subscription was purchased. `render.yaml` remains an alternative deployment template and creates no service by itself.
 
 Provision an administrator using a trusted administration shell:
 
