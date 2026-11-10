@@ -16,6 +16,7 @@ test('player registration, selections, persisted prediction, wallet and rules',a
   for(const base of [10,50,100,1000]){await page.locator(`[data-base="${base}"]`).click();await expect(page.locator('#base')).toHaveValue(String(base))}
   for(const multiplier of [1,5,10,20,50,100]){await page.locator(`[data-multiplier="${multiplier}"]`).click();await expect(page.locator(`[data-multiplier="${multiplier}"]`)).toHaveAttribute('aria-pressed','true')}
   await page.locator('[data-base="10"]').click();await page.locator('[data-multiplier="1"]').click();await page.locator('[data-choice="GREEN"]').click();
+  await expect.poll(async()=>{const [minutes,seconds]=(await page.locator('#timer').textContent()).split(':').map(Number);return minutes*60+seconds},{timeout:45000}).toBeGreaterThan(30);
   await expect(page.locator('#place-button')).toHaveText('Place prediction',{timeout:10000});await page.locator('#place-button').click();await expect(page.locator('#bet-message')).toContainText('saved');await expect(page.locator('#balance')).toContainText('9,990');
   await page.locator('[data-choice="RED"]').click();await page.locator('#place-button').click();await expect(page.locator('#bet-message')).toContainText('Red and Green');await expect(page.locator('#balance')).toContainText('9,990');
   await page.locator('[data-history="bets"]').click();await expect(page.locator('#history-content')).toContainText('Green');
