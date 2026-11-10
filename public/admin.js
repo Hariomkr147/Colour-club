@@ -2,7 +2,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const points = n => new Intl.NumberFormat('en-IN',{maximumFractionDigits:2}).format(n/100);
 const date = n => new Date(n).toLocaleString();
-let view='users',page=1,search='',rows=[],target,busy=false;
+let view='users',page=1,search='',rows=[],target,busy=false,reloadRequested=false;
 async function api(path,input) {
   const response = await fetch(path,{method:input?'POST':'GET',headers:input?{'Content-Type':'application/json'}:{},body:input?JSON.stringify(input):undefined,signal:AbortSignal.timeout(12000)});
   const data=await response.json();
@@ -20,8 +20,9 @@ function access(error) {
 }
 function table(headings,body){return `<table class="admin-table"><thead><tr>${headings.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;}
 async function load() {
-  if(busy)return;
+  if(busy){reloadRequested=true;return;}
   busy=true;$('#refresh-admin').disabled=true;
+  const requested={view,page,search};
   try {
     const overview=await api('/api/admin/overview');
     $('#admin-access').hidden=$('#admin-mfa').hidden=true;$('#admin-dashboard').hidden=false;
@@ -30,7 +31,9 @@ async function load() {
     $('#admin-metrics').innerHTML=[['Accounts',overview.users.total],['Blocked',overview.users.blocked],['Points in wallets',points(overview.users.points)],['Predictions',overview.bets.total],['Points staked',points(overview.bets.staked)],['Points returned',points(overview.bets.returned)],['Pending predictions',overview.bets.pending],['Ledger differences',overview.reconciliation.mismatches]].map(([name,value])=>`<div><span>${name}</span><strong>${value}</strong></div>`).join('');
     $('#search-form').hidden=view!=='users';
     $('#admin-table').textContent=`Loading ${view}…`;
-    const data=await api(`/api/admin/${view}?page=${page}&q=${encodeURIComponent(search)}`);rows=data.rows;
+    const data=await api(`/api/admin/${requested.view}?page=${requested.page}&q=${encodeURIComponent(requested.search)}`);
+    if(view!==requested.view||page!==requested.page||search!==requested.search){reloadRequested=true;return;}
+    rows=data.rows;
     let html;
     if(view==='users')html=table(['Account','Balance','Predictions','Access','Actions'],rows.map(u=>`<tr><td><strong>${esc(u.name)}</strong><small>${esc(u.email)} · #${u.id}</small></td><td>${points(u.balance)}</td><td>${u.bet_count}</td><td>${u.blocked?'Blocked':u.role==='admin'?'Administrator':'Active'}<small>${u.verified?'Email verified':'Email unverified'}</small></td><td><button class="text-button" data-user="${u.id}">Details</button>${u.role==='admin'?'':`<button class="text-button ${u.blocked?'positive':'negative'}" data-status="${u.id}">${u.blocked?'Unblock':'Block'}</button>`}</td></tr>`).join(''));
     if(view==='bets')html=table(['Account','Room / round','Selection','Stake','Return'],rows.map(b=>`<tr><td>${esc(b.email)}<small>#${b.id} · ${esc(date(b.created))}</small></td><td>${b.room}s<small>${esc(b.round_id)}</small></td><td>${esc(b.selection)}</td><td>${points(b.stake)}</td><td>${b.payout===null?'Pending':points(b.payout)}</td></tr>`).join(''));
@@ -40,7 +43,7 @@ async function load() {
     $('#page-label').textContent=`Page ${page} · ${data.total} records`;
     $('#previous').disabled=page===1;$('#next').disabled=page*25>=data.total;
   }catch(error){access(error);if(!$('#admin-dashboard').hidden)$('#admin-table').textContent='Could not load records. Use Refresh data to retry.';}
-  finally{busy=false;$('#refresh-admin').disabled=false;}
+  finally{busy=false;$('#refresh-admin').disabled=false;if(reloadRequested){reloadRequested=false;void load();}}
 }
 $('#admin-login').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{await api('/api/login',{email:$('#admin-email').value,password:$('#admin-password').value});$('#admin-password').value='';await load();}catch(error){access(error)}finally{button.disabled=false}};
 $('#mfa-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{await api('/api/admin/verify',{code:$('#mfa-code').value});$('#mfa-code').value='';await load();}catch(error){access(error)}finally{button.disabled=false}};

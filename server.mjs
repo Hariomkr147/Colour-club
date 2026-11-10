@@ -124,11 +124,12 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
         return;
       }
       if (!url.pathname.startsWith('/api/')) throw fail('Page not found.', 404);
-      await rate(`all:${ip}`, 3000);
+      const requester = await userFrom(req);
+      await rate(requester ? `all:user:${requester}` : `all:${ip}`, 3000);
       if (url.pathname === '/api/health' && req.method === 'GET') return json(healthy ? 200 : 503, { ok: healthy });
       if (!healthy) throw fail('Rounds are temporarily paused while the server recovers. Your points are saved.', 503);
       if (req.method === 'GET' && url.pathname === '/api/state') {
-        return json(200, { ...await store.state(Number(url.searchParams.get('room') || 30), await userFrom(req), clock()), registrationEnabled, verificationRequired: requireVerification, emailAvailable: !!mailer });
+        return json(200, { ...await store.state(Number(url.searchParams.get('room') || 30), requester, clock()), registrationEnabled, verificationRequired: requireVerification, emailAvailable: !!mailer });
       }
       if (req.method === 'GET' && url.pathname.startsWith('/api/admin/')) {
         await requireAdmin(req);
@@ -168,10 +169,11 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
       const input = await body(req);
       if (['/api/register', '/api/login'].includes(url.pathname)) {
         if (url.pathname === '/api/register' && !registrationEnabled) throw fail('New registrations are temporarily unavailable. Please try again later.',503);
-        await rate(`auth:${ip}`, 10);
         if (typeof input.email !== 'string' || input.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) throw fail('Enter a valid email address.');
         if (typeof input.password !== 'string' || input.password.length < 12 || input.password.length > 128) throw fail('Use a password between 12 and 128 characters.');
         const email = input.email.trim().toLowerCase();
+        await rate(`auth-account:${digest(email)}`, 10);
+        await rate(`auth:${ip}`, 120);
         let userId, expectedPassword;
         if (url.pathname === '/api/register') {
           if (input.accepted !== true) throw fail('Please acknowledge the free-play and house-controlled rules.');
@@ -225,7 +227,7 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
         });
         return json(200,{ok:true});
       }
-      const userId = await userFrom(req);
+      const userId = requester;
       if (!userId) throw fail('Please sign in to continue.', 401);
       if (url.pathname === '/api/logout') {
         await store.run('DELETE FROM sessions WHERE token=?', digest(tokenFrom(req)));

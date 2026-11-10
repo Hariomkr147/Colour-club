@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createApp } from '../server.mjs';
 
+test('authentication throttles an account without locking other accounts behind the same proxy',async t=>{
+  const app=await createApp();app.server.listen(0,'127.0.0.1');await once(app.server,'listening');t.after(()=>app.close());
+  const origin=`http://127.0.0.1:${app.server.address().port}`;
+  const post=email=>fetch(origin+'/api/register',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({email,password:'a valid long password',name:'Throttle test',accepted:false})});
+  for(let i=0;i<10;i++)assert.equal((await post('limited@example.test')).status,400);
+  assert.equal((await post('limited@example.test')).status,429);
+  assert.equal((await post('other@example.test')).status,400);
+  assert.equal(app.store.get('SELECT COUNT(*) AS count FROM users').count,0);
+});
+
 test('paused registration and unavailable email fail closed without creating accounts',async t=>{
   const app=await createApp({registrationEnabled:false});
   app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
