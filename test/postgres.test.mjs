@@ -17,7 +17,7 @@ async function database(t) {
 }
 
 test('PostgreSQL signup without email verification permits play and leaves recovery unavailable',{skip:!url},async t=>{
-  let app;t.after(async()=>{if(app){await new Promise(resolve=>app.server.close(resolve));await app.store.close();}});
+  let app;t.after(async()=>{if(app)await app.close();});
   const schema=await database(t);const now=1800000000000;
   app=await createApp({databaseUrl:url,dbSchema:schema,clock:()=>now,requireVerification:false});
   app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
@@ -35,6 +35,8 @@ test('PostgreSQL signup without email verification permits play and leaves recov
 test('PostgreSQL serialises wallet debits, retries, opposing bets and competing settlement workers',{skip:!url},async t=>{
   const schema=await database(t);let now=1800000000000;
   const store=await createPgStore(url,{schema,clock:()=>now});t.after(()=>store.close());
+  const session=await store.get("SELECT current_schema() AS schema,current_setting('statement_timeout') AS statement_timeout,current_setting('lock_timeout') AS lock_timeout");
+  assert.deepEqual(session,{schema,statement_timeout:'15s',lock_timeout:'5s'});
   const id=await store.register('concurrent@example.test','Concurrent','hash','salt',now);
   const other=await store.register('other@example.test','Other','hash','salt',now);
   await store.tick(now);const round=(await store.state(30,id,now)).round;
@@ -61,10 +63,10 @@ test('PostgreSQL checks cutoff after waiting for a wallet lock',{skip:!url},asyn
   await assert.rejects(pending,/locked/);assert.equal((await store.get('SELECT balance FROM users WHERE id=?',id)).balance,1000000);
 });
 test('PostgreSQL admin MFA, blocking, private records, email verification and one-use reset',{skip:!url},async t=>{
+  let app;t.after(()=>app?.close());
   const schema=await database(t);let now=1800000000000;const mail=[];
-  const app=await createApp({databaseUrl:url,dbSchema:schema,clock:()=>now,mailer:async m=>mail.push(m),requireVerification:true});
+  app=await createApp({databaseUrl:url,dbSchema:schema,clock:()=>now,mailer:async m=>mail.push(m),requireVerification:true});
   app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
-  t.after(async()=>{await new Promise(resolve=>app.server.close(resolve));await app.store.close()});
   const origin=`http://127.0.0.1:${app.server.address().port}`;let cookie;
   const post=async(path,input,session=cookie)=>fetch(origin+path,{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,...(session?{Cookie:session}:{})},body:JSON.stringify(input)});
   const get=path=>fetch(origin+path,{headers:cookie?{Cookie:cookie}:{}});

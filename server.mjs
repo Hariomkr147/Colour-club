@@ -28,13 +28,14 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
   const limits = new Map();
   let hashing = 0;
   let healthy = true;
-  let ticking = false;
+  let ticking;
   async function tick() {
-    if (ticking) return;
-    ticking = true;
-    try { await store.tick(clock()); healthy = true; }
-    catch (error) { healthy = false; console.error('Round processing failed:', error.message); }
-    finally { ticking = false; }
+    if (ticking) return ticking;
+    ticking = (async () => {
+      try { await store.tick(clock()); healthy = true; }
+      catch (error) { healthy = false; console.error('Round processing failed:', error.message); }
+    })();
+    try { await ticking; } finally { ticking = null; }
   }
   await tick();
   const timer = setInterval(tick, 500);
@@ -274,8 +275,14 @@ export async function createApp({ dbPath = ':memory:', databaseUrl, dbSchema, cl
   });
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
-  server.on('close', () => { clearInterval(timer); void store.close(); });
-  return { server, store, tick };
+  let storeClosing;
+  function closeStore() {
+    clearInterval(timer);
+    return storeClosing ??= (async () => { await ticking; await store.close(); })();
+  }
+  server.on('close', () => { void closeStore(); });
+  async function close() { clearInterval(timer); await new Promise(resolve => server.close(resolve)); await closeStore(); }
+  return { server, store, tick, close };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -297,5 +304,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const app = await createApp({ dbPath: path, databaseUrl: process.env.DATABASE_URL, origin, secure, mailer, requireVerification, registrationEnabled });
   const port = Number(process.env.PORT || process.env.SERVER_PORT || 3000);
   app.server.listen(port, process.env.HOST || '127.0.0.1', () => console.log(`Colour Club is running at ${origin || `http://127.0.0.1:${port}`}`));
-  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => app.server.close(() => process.exit(0)));
+  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { void app.close().then(() => process.exit(0)); });
 }

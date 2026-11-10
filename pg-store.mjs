@@ -8,10 +8,11 @@ pg.types.setTypeParser(20, value => {
   return number;
 });
 const error = (message, status = 400) => Object.assign(new Error(message), { status });
-export async function createPgStore(connectionString, { schema = 'public', clock = Date.now } = {}) {
+export async function createPgStore(connectionString, { schema = process.env.DATABASE_SCHEMA || 'public', clock = Date.now } = {}) {
   if (!/^[a-z][a-z0-9_]*$/.test(schema)) throw new Error('Invalid database schema.');
-  const pool = new pg.Pool({ connectionString, max: 10, connectionTimeoutMillis: 5000,
-    options: `-c search_path=${schema} -c statement_timeout=15000 -c lock_timeout=5000` });
+  const pool = new pg.Pool({ connectionString, max: 10, connectionTimeoutMillis: 10000,
+    // Session poolers can ignore startup options; initialise each session before it is lent out.
+    onConnect: client => client.query(`SET search_path TO ${schema}; SET statement_timeout TO 15000; SET lock_timeout TO 5000`) });
   pool.on('error', err => console.error('Database connection interrupted:', err.code));
   const sql = (client, text, args) => { let i = 0; return client.query(text.replace(/\?/g, () => `$${++i}`), args); };
   const access = client => ({

@@ -8,6 +8,8 @@ const file=resolve(process.argv[2] || '');
 if (!process.argv[2] || !existsSync(file)) throw new Error('Pass the path to a pg_dump custom-format backup.');
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required.');
 const original=new URL(process.env.DATABASE_URL);
+const schema=process.env.DATABASE_SCHEMA || 'public';
+assert.match(schema,/^[a-z][a-z0-9_]*$/);
 const control=new pg.Pool({connectionString:original.toString()});
 const name=`colour_restore_${randomBytes(6).toString('hex')}`;
 assert.match(name,/^colour_restore_[a-f0-9]{12}$/);
@@ -17,7 +19,7 @@ try {
   const result=spawnSync(program,['--no-owner','--exit-on-error','--dbname',name,file],{env:{...process.env,PGHOST:original.hostname,PGPORT:original.port||'5432',PGUSER:decodeURIComponent(original.username),PGPASSWORD:decodeURIComponent(original.password)},encoding:'utf8',windowsHide:true,timeout:120000});
   if(result.error || result.status) throw new Error(result.error?.message || result.stderr);
   const restored=new URL(original);restored.pathname=`/${name}`;
-  const pool=new pg.Pool({connectionString:restored.toString()});
+  const pool=new pg.Pool({connectionString:restored.toString(),options:`-c search_path=${schema}`});
   try {
     const {rows}=await pool.query('SELECT COUNT(*)::integer AS mismatches FROM users u WHERE balance<>(SELECT COALESCE(SUM(amount),0) FROM ledger WHERE user_id=u.id)');
     assert.equal(rows[0].mismatches,0,'Restored wallet balances must reconcile to the ledger');

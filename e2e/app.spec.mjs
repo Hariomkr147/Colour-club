@@ -32,7 +32,7 @@ test('responsive player board and admin sign-in have no horizontal overflow',asy
   await page.goto('/admin');await expect(page.locator('#admin-access')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 test('admin authenticator, user details, block/unblock and all dashboard sections',async({page,browser})=>{
-  const setup=readFileSync('data/admin-setup.txt','utf8');
+  const setup=readFileSync(process.env.E2E_ADMIN_SETUP || 'data/admin-setup.txt','utf8');
   const email=/Administrator email: (.+)/.exec(setup)[1],password=/Initial password: (.+)/.exec(setup)[1],secret=/Authenticator key: (.+)/.exec(setup)[1];
   const player=await browser.newContext();const userPage=await player.newPage();
   await userPage.goto('/');await userPage.locator('#join-button').click();await userPage.locator('#name').fill('Admin block test');const userEmail=`block-${Date.now()}@example.test`;await userPage.locator('#email').fill(userEmail);await userPage.locator('#password').fill('Unique block test password');await userPage.locator('#accepted').check();await userPage.locator('#auth-submit').click();await expect(userPage.locator('#auth-dialog')).not.toBeVisible();
